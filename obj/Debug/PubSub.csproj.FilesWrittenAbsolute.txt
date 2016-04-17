@@ -1,0 +1,5 @@
+/Users/GilSani/Projects/Tasky/PubSub/obj/Debug/.NETPortable,Version=v4.5,Profile=Profile78.AssemblyAttribute.cs
+/Users/GilSani/Projects/Tasky/PubSub/bin/Debug/PubSub.dll.mdb
+/Users/GilSani/Projects/Tasky/PubSub/bin/Debug/PubSub.dll
+/Users/GilSani/Projects/Tasky/PubSub/obj/Debug/PubSub.dll
+/Users/GilSani/Projects/Tasky/PubSub/obj/Debug/PubSub.dll.mdb
