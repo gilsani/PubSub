@@ -22,6 +22,7 @@ namespace PubSub
 			}
 		} 
 
+		private object locker = new object();
 		private readonly Dictionary<string, Action<object>> events;
 
 		private PubSubService ()
@@ -40,10 +41,12 @@ namespace PubSub
 		{
 			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
 			var service = PubSubService.Default;
-			if (!service.events.ContainsKey (theKey)) {
-				service.events.Add (theKey, (args) => callback.Invoke ((TArgs)args));
-			} else {
-				service.events [theKey] = (args) => callback.Invoke ((TArgs)args);
+			lock (service.locker) {
+				if (!service.events.ContainsKey (theKey)) {
+					service.events.Add (theKey, (args) => callback.Invoke ((TArgs)args));
+				} else {
+					service.events [theKey] = (args) => callback.Invoke ((TArgs)args);
+				}	
 			}
 		}
 
@@ -57,13 +60,15 @@ namespace PubSub
 		{
 			var theKey = $"{typeof(TArgs)}_{key}";
 			var service = PubSubService.Default;
-			var actions = service.events.Where (d => {
-				var tmp = d.Key.Split('_'); 
-				var newKey = $"{tmp[0]}_{tmp[1]}";
-				return newKey == theKey;
-			}).Select (d => d.Value);
-			foreach (var action in actions) {
-				action.Invoke (args);
+			lock (service.locker) {
+				var actions = service.events.Where (d => {
+					var tmp = d.Key.Split('_'); 
+					var newKey = $"{tmp[0]}_{tmp[1]}";
+					return newKey == theKey;
+				}).Select (d => d.Value);	
+				foreach (var action in actions) {
+					action.Invoke (args);
+				}
 			}
 		}
 
@@ -76,9 +81,11 @@ namespace PubSub
 		{
 			var theKey = $"{key}_{subscriber.GetType().Name}";
 			var service = PubSubService.Default;
-			var keysToRemove = service.events.Where (d => d.Key.EndsWith (theKey)).Select (d => d.Key).ToList ();
-			foreach (var aKey in keysToRemove) {
-				service.events.Remove (aKey);
+			lock (service.locker) {
+				var keysToRemove = service.events.Where (d => d.Key.EndsWith (theKey)).Select (d => d.Key).ToList ();
+				foreach (var aKey in keysToRemove) {
+					service.events.Remove (aKey);
+				}	
 			}
 		}
 	}
