@@ -78,7 +78,7 @@ namespace PubSub
 		public static void Subscribe<TSenderOrArgs> (object subscriber, string key, Action<TSenderOrArgs> callback)
 		{
 			var theKey = $"{typeof(TSenderOrArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TSenderOrArgs)sender));
+			PubSubService.Default.subscribe (subscriber, theKey, (arg1, arg2) => callback.Invoke ((TSenderOrArgs)arg1));
 		}
 
 		/// <summary>
@@ -108,31 +108,12 @@ namespace PubSub
 		}
 
 		/// <summary>
-		/// Publish the specified sender and key.
-		/// </summary>
-		/// <param name="sender">Sender.</param>
-		/// <param name="key">Key.</param>
-		/// <typeparam name="TSender">The type of the sender.</typeparam>
-		public static void Publish<TSender> (TSender sender, string key)
-		{
-			var theKey = $"{typeof(TSender)}_{key}";
-			PubSubService.Default.publish (d => {
-				var tmp = d.Key.Split('_'); 
-				if (tmp.Count () >= 2) {
-					var newKey = $"{tmp[0]}_{tmp[1]}";
-					return newKey == theKey;
-				}
-				return false;
-			}, (action) => action.Invoke (sender, null));
-		}
-
-		/// <summary>
 		/// Publish the specified key and args.
 		/// </summary>
 		/// <param name="key">Key.</param>
 		/// <param name="args">Arguments.</param>
-		/// <typeparam name="TArgs">The type of the argument.</typeparam>
-		public static void Publish<TArgs> (string key, TArgs args)
+		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
+		public static void Publish<TSenderOrArgs> (string key, TSenderOrArgs args)
 		{
 			var theKey = $"{typeof(TArgs)}_{key}";
 			PubSubService.Default.publish (d => {
