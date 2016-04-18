@@ -115,7 +115,7 @@ namespace PubSub
 		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
 		public static void Publish<TSenderOrArgs> (string key, TSenderOrArgs args)
 		{
-			var theKey = $"{typeof(TArgs)}_{key}";
+			var theKey = $"{typeof(TSenderOrArgs)}_{key}";
 			PubSubService.Default.publish (d => {
 				var tmp = d.Key.Split('_'); 
 				if (tmp.Count () >= 2) {
