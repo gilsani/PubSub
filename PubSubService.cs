@@ -75,10 +75,10 @@ namespace PubSub
 		/// <param name="key">Key.</param>
 		/// <param name="callback">Callback.</param>
 		/// <typeparam name="TSender">The type of the sender.</typeparam>
-		public static void Subscribe<TSender> (object subscriber, string key, Action callback)
+		public static void Subscribe<TSender> (object subscriber, string key, Action<TSender> callback)
 		{
 			var theKey = $"{typeof(TSender)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ());
+			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke (sender));
 		}
 
 		/// <summary>
