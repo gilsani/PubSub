@@ -11,7 +11,7 @@ namespace PubSub
 	public class PubSubService
 	{
 		private static PubSubService instance = null;
-		private static PubSubService Default {
+		public static PubSubService Default {
 			get {
 				return instance ?? (instance = new PubSubService ());
 			}
