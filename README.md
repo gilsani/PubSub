@@ -12,12 +12,15 @@ There are two parts to PubSubService:
 ####The API:
 
 * Subscribe (object subscriber, string key, Action callback)
+* Subscribe<TSender> (object subscriber, string key, Action callback)
 * Subscribe<TArgs> (object subscriber, string key, Action<TArgs> callback)
 * Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> callback)
 * Publish (string key)
+* Publish<TSender> (TSender sender, string key)
 * Publish<TArgs> (string key, TArgs args)
 * Publish<TSender, TArgs> (TSender sender, string key, TArgs args)
 * Unsubscribe (object subscriber, string key)
+* Unsubscribe<TSender> (object subscriber, string key)
 * Unsubscribe<TArgs> (object subscriber, string key)
 * Unsubscribe<TSender, TArgs> (object subscriber, string key)
 
