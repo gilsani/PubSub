@@ -118,8 +118,11 @@ namespace PubSub
 			var theKey = $"{typeof(TArgs)}_{key}";
 			PubSubService.Default.publish (d => {
 				var tmp = d.Key.Split('_'); 
-				var newKey = $"{tmp[0]}_{tmp[1]}";
-				return newKey == theKey;
+				if (tmp.Count () >= 2) {
+					var newKey = $"{tmp[0]}_{tmp[1]}";
+					return newKey == theKey;
+				}
+				return false;
 			}, (action) => action.Invoke (null, args));
 		}
 
@@ -136,8 +139,11 @@ namespace PubSub
 			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}";
 			PubSubService.Default.publish (d => {
 				var tmp = d.Key.Split('_'); 
-				var newKey = $"{tmp[0]}_{tmp[1]}_{tmp[2]}";
-				return newKey == theKey;
+				if (tmp.Count () >= 3) {
+					var newKey = $"{tmp[0]}_{tmp[1]}_{tmp[2]}";
+					return newKey == theKey;
+				}
+				return false;
 			}, (action) => action.Invoke (sender, args));
 		}
 
