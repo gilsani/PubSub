@@ -9,6 +9,10 @@ There are two parts to PubSubService:
 * Subscribe - Listen for events with a certain signature and perform some action when they are received. Mulitple subscribers can be listening for the same event.
 * Publish - Publish an event for listeners to act upon. If no listeners have subscribed then the event is ignored.
 
+The PubSubService is a static class with Subscribe and Publish methods.
+
+Events have a string key parameter that is used as way to address events. The Subscribe and Publish methods use generic parameters to further control how events are delivered - two events with the same key text but different generic type arguments will not be delivered to the same subscriber.
+
 ####The API:
 ```cshapr
 * Subscribe (object subscriber, string key, Action callback)
