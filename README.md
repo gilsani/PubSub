@@ -10,20 +10,18 @@ There are two parts to PubSubService:
 * Publish - Publish an event for listeners to act upon. If no listeners have subscribed then the event is ignored.
 
 ####The API:
-
+```cshapr
 * Subscribe (object subscriber, string key, Action callback)
-* Subscribe<TSender> (object subscriber, string key, Action<TSender> callback)
-* Subscribe<TArgs> (object subscriber, string key, Action<TArgs> callback)
+* Subscribe<TSenderOrArgs> (object subscriber, string key, Action<TSenderOrArgs> callback)
 * Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> callback)
 * Publish (string key)
 * Publish<TSender> (TSender sender, string key)
 * Publish<TArgs> (string key, TArgs args)
 * Publish<TSender, TArgs> (TSender sender, string key, TArgs args)
 * Unsubscribe (object subscriber, string key)
-* Unsubscribe<TSender> (object subscriber, string key)
-* Unsubscribe<TArgs> (object subscriber, string key)
+* Unsubscribe<TSenderOrArgs> (object subscriber, string key)
 * Unsubscribe<TSender, TArgs> (object subscriber, string key)
-
+```
 ####Unsubscribe
 An object can unsubscribe from a publish signature so that no future events are received. The Unsubscribe method syntax should reflect the signature of the subscription.
 
