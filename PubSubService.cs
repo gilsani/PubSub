@@ -6,12 +6,7 @@ namespace PubSub
 {
 	/// <summary>
 	/// <para>Publish subscribe service.</para>
-	/// <para></para>
-	/// <para>Notes:</para>
-	/// <para>1. Publish and Subscribe 'TArgs' must be of the same type for a specific subscription key else the subscriber won't receive the message.</para>
-	/// <para></para>
-	/// 	  <para>2. Same subscriber can have two or more subscriptions with the same key if 'TArgs' is different for each subscription.
-	/// 		       otherwise the last subscription will override the previous.</para>
+	/// <para>Enables view models and other components to communicate with without having to know anything about each other besides a simple Subscription contract.</para>
 	/// </summary>
 	public class PubSubService
 	{
@@ -23,11 +18,42 @@ namespace PubSub
 		} 
 
 		private object locker = new object();
-		private readonly Dictionary<string, Action<object>> events;
+		private readonly Dictionary<string, Action<object, object>> events;
 
 		private PubSubService ()
 		{
-			events = new Dictionary<string, Action<object>> ();
+			events = new Dictionary<string, Action<object, object>> ();
+		}
+
+		private void subscribe (object subscriber, string key, Action<object, object> callback)
+		{
+			lock (locker) {
+				if (!events.ContainsKey (key)) {
+					events.Add (key, callback);
+				} else {
+					events [key] = callback;
+				}	
+			}
+		}
+
+		private void publish (Func<KeyValuePair<string, Action<object, object>> ,bool> predicate, Action<Action<object, object>> actionToInvoke)
+		{
+			lock (locker) {
+				var actions = events.Where (predicate).Select (d => d.Value);	
+				foreach (var action in actions) {
+					actionToInvoke.Invoke (action);
+				}
+			}
+		}
+
+		private void unsubscribe (string key)
+		{
+			lock (locker) {
+				var keysToRemove = events.Where (d => d.Key == key).Select (d => d.Key).ToList ();
+				foreach (var aKey in keysToRemove) {
+					events.Remove (aKey);
+				}	
+			}
 		}
 
 		/// <summary>
@@ -36,18 +62,49 @@ namespace PubSub
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
 		/// <param name="callback">Callback.</param>
-		/// <typeparam name="TArgs">The 1st type parameter.</typeparam>
+		public static void Subscribe (object subscriber, string key, Action callback)
+		{
+			var theKey = $"{key}_{subscriber.GetType().Name}";
+			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ());
+		}
+
+		/// <summary>
+		/// Subscribe the specified subscriber, key and callback.
+		/// </summary>
+		/// <param name="subscriber">Subscriber.</param>
+		/// <param name="key">Key.</param>
+		/// <param name="callback">Callback.</param>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
 		public static void Subscribe<TArgs> (object subscriber, string key, Action<TArgs> callback)
 		{
 			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
-			var service = PubSubService.Default;
-			lock (service.locker) {
-				if (!service.events.ContainsKey (theKey)) {
-					service.events.Add (theKey, (args) => callback.Invoke ((TArgs)args));
-				} else {
-					service.events [theKey] = (args) => callback.Invoke ((TArgs)args);
-				}	
-			}
+			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TArgs)args));
+		}
+
+		/// <summary>
+		/// Subscribe the specified subscriber, key and callback.
+		/// </summary>
+		/// <param name="subscriber">Subscriber.</param>
+		/// <param name="key">Key.</param>
+		/// <param name="callback">Callback.</param>
+		/// <typeparam name="TSender">The type of the sender.</typeparam>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> callback)
+		{
+			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TSender)sender, (TArgs)args));
+		}
+
+		/// <summary>
+		/// Publish the specified key.
+		/// </summary>
+		/// <param name="key">Key.</param>
+		public static void Publish (string key)
+		{
+			PubSubService.Default.publish (d => {
+				var tmp = d.Key.Split('_'); 
+				return tmp[0] == key;
+			}, (action) => action.Invoke (null, null));
 		}
 
 		/// <summary>
@@ -55,21 +112,33 @@ namespace PubSub
 		/// </summary>
 		/// <param name="key">Key.</param>
 		/// <param name="args">Arguments.</param>
-		/// <typeparam name="TArgs">The 1st type parameter.</typeparam>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
 		public static void Publish<TArgs> (string key, TArgs args)
 		{
 			var theKey = $"{typeof(TArgs)}_{key}";
-			var service = PubSubService.Default;
-			lock (service.locker) {
-				var actions = service.events.Where (d => {
-					var tmp = d.Key.Split('_'); 
-					var newKey = $"{tmp[0]}_{tmp[1]}";
-					return newKey == theKey;
-				}).Select (d => d.Value);	
-				foreach (var action in actions) {
-					action.Invoke (args);
-				}
-			}
+			PubSubService.Default.publish (d => {
+				var tmp = d.Key.Split('_'); 
+				var newKey = $"{tmp[0]}_{tmp[1]}";
+				return newKey == theKey;
+			}, (action) => action.Invoke (null, args));
+		}
+
+		/// <summary>
+		/// Publish the specified sender, key and args.
+		/// </summary>
+		/// <param name="sender">Sender.</param>
+		/// <param name="key">Key.</param>
+		/// <param name="args">Arguments.</param>
+		/// <typeparam name="TSender">The type of the sender.</typeparam>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Publish<TSender, TArgs> (TSender sender, string key, TArgs args)
+		{
+			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}";
+			PubSubService.Default.publish (d => {
+				var tmp = d.Key.Split('_'); 
+				var newKey = $"{tmp[0]}_{tmp[1]}_{tmp[2]}";
+				return newKey == theKey;
+			}, (action) => action.Invoke (sender, args));
 		}
 
 		/// <summary>
@@ -80,13 +149,32 @@ namespace PubSub
 		public static void Unsubscribe (object subscriber, string key)
 		{
 			var theKey = $"{key}_{subscriber.GetType().Name}";
-			var service = PubSubService.Default;
-			lock (service.locker) {
-				var keysToRemove = service.events.Where (d => d.Key.EndsWith (theKey)).Select (d => d.Key).ToList ();
-				foreach (var aKey in keysToRemove) {
-					service.events.Remove (aKey);
-				}	
-			}
+			PubSubService.Default.unsubscribe (theKey);
+		}
+
+		/// <summary>
+		/// Unsubscribe the specified subscriber and key.
+		/// </summary>
+		/// <param name="subscriber">Subscriber.</param>
+		/// <param name="key">Key.</param>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Unsubscribe<TArgs> (object subscriber, string key)
+		{
+			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+			PubSubService.Default.unsubscribe (theKey);
+		}
+
+		/// <summary>
+		/// Unsubscribe the specified subscriber and key.
+		/// </summary>
+		/// <param name="subscriber">Subscriber.</param>
+		/// <param name="key">Key.</param>
+		/// <typeparam name="TSender">The type of the sender.</typeparam>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Unsubscribe<TSender, TArgs> (object subscriber, string key)
+		{
+			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+			PubSubService.Default.unsubscribe (theKey);
 		}
 	}
 }
