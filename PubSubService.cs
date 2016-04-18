@@ -74,24 +74,11 @@ namespace PubSub
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
 		/// <param name="callback">Callback.</param>
-		/// <typeparam name="TSender">The type of the sender.</typeparam>
-		public static void Subscribe<TSender> (object subscriber, string key, Action<TSender> callback)
+		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
+		public static void Subscribe<TSenderOrArgs> (object subscriber, string key, Action<TSenderOrArgs> callback)
 		{
-			var theKey = $"{typeof(TSender)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TSender)sender));
-		}
-
-		/// <summary>
-		/// Subscribe the specified subscriber, key and callback.
-		/// </summary>
-		/// <param name="subscriber">Subscriber.</param>
-		/// <param name="key">Key.</param>
-		/// <param name="callback">Callback.</param>
-		/// <typeparam name="TArgs">The type of the argument.</typeparam>
-		public static void Subscribe<TArgs> (object subscriber, string key, Action<TArgs> callback)
-		{
-			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TArgs)args));
+			var theKey = $"{typeof(TSenderOrArgs)}_{key}_{subscriber.GetType().Name}";
+			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TSenderOrArgs)sender));
 		}
 
 		/// <summary>
@@ -155,7 +142,7 @@ namespace PubSub
 					return newKey == theKey;
 				}
 				return false;
-			}, (action) => action.Invoke (null, args));
+			}, (action) => action.Invoke (args, null));
 		}
 
 		/// <summary>
@@ -195,22 +182,10 @@ namespace PubSub
 		/// </summary>
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
-		/// <typeparam name="TSender">The type of the sender.</typeparam>
-		public static void Unsubscribe<TSender> (object subscriber, string key)
+		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
+		public static void Unsubscribe<TSenderOrArgs> (object subscriber, string key)
 		{
-			var theKey = $"{typeof(TSender)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.unsubscribe (theKey);
-		}
-
-		/// <summary>
-		/// Unsubscribe the specified subscriber and key.
-		/// </summary>
-		/// <param name="subscriber">Subscriber.</param>
-		/// <param name="key">Key.</param>
-		/// <typeparam name="TArgs">The type of the argument.</typeparam>
-		public static void Unsubscribe<TArgs> (object subscriber, string key)
-		{
-			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+			var theKey = $"{typeof(TSenderOrArgs)}_{key}_{subscriber.GetType().Name}";
 			PubSubService.Default.unsubscribe (theKey);
 		}
 
