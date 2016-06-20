@@ -10,14 +10,9 @@ namespace PubSub
 	/// </summary>
 	public class PubSubService
 	{
-		private static PubSubService instance = null;
-		public static PubSubService Default {
-			get {
-				return instance ?? (instance = new PubSubService ());
-			}
-		} 
+	    public static PubSubService Default { get; } = new PubSubService();
 
-		private object locker = new object();
+	    private readonly object locker = new object();
 		private readonly Dictionary<string, Action<object, object>> events;
 
 		private PubSubService ()
