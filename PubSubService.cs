@@ -5,89 +5,108 @@ using System.Linq;
 namespace PubSub
 {
 	/// <summary>
-	/// <para>Publish subscribe service.</para>
+	/// <para>Publish Subscribe service.</para>
 	/// <para>Enables view models and other components to communicate with without having to know anything about each other besides a simple Subscription contract.</para>
 	/// </summary>
 	public class PubSubService
 	{
 	    public static PubSubService Default { get; } = new PubSubService();
 
-	    private readonly object locker = new object();
-		private readonly Dictionary<string, Action<object, object>> events;
+	    private readonly object _locker = new object();
+		private readonly Dictionary<string, Handler> _handlers;
 
 		private PubSubService ()
 		{
-			events = new Dictionary<string, Action<object, object>> ();
+			_handlers = new Dictionary<string, Handler> ();
 		}
 
-		private void subscribe (object subscriber, string key, Action<object, object> callback)
+		private void Subscribe (string key, Handler handler)
 		{
-			lock (locker) {
-				if (!events.ContainsKey (key)) {
-					events.Add (key, callback);
+			lock (_locker) {
+				if (!_handlers.ContainsKey (key)) {
+					_handlers.Add (key, handler);
 				} else {
-					events [key] = callback;
+					_handlers [key] = handler;
 				}	
 			}
 		}
 
-		private void publish (Func<KeyValuePair<string, Action<object, object>> ,bool> predicate, Action<Action<object, object>> actionToInvoke)
-		{
-			lock (locker) {
-				var actions = events.Where (predicate).Select (d => d.Value);	
-				foreach (var action in actions) {
-					actionToInvoke.Invoke (action);
-				}
-			}
-		}
+	    private IEnumerable<Handler> GetHandlers(Func<KeyValuePair<string, Handler>, bool> predicate)
+	    {
+            lock (_locker)
+            {
+                var handlersToDelete = _handlers.Where((pair => !pair.Value.Subscriber.IsAlive)).Select(p => p.Key);
+                foreach (var key in handlersToDelete)
+                {
+                    _handlers.Remove(key);
+                }
+                var hadnlers = _handlers.Where(predicate).Select(d => d.Value);
+                return hadnlers;
+            }
+	    }
 
-		private void unsubscribe (string key)
+        private void Unsubscribe (string key)
 		{
-			lock (locker) {
-				var keysToRemove = events.Where (d => d.Key == key).Select (d => d.Key).ToList ();
+			lock (_locker) {
+				var keysToRemove = _handlers.Where (d => d.Key == key).Select (d => d.Key).ToList ();
 				foreach (var aKey in keysToRemove) {
-					events.Remove (aKey);
+					_handlers.Remove (aKey);
 				}	
 			}
 		}
 
 		/// <summary>
-		/// Subscribe the specified subscriber, key and callback.
+		/// Subscribe the specified subscriber, key and handler.
 		/// </summary>
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
-		/// <param name="callback">Callback.</param>
-		public static void Subscribe (object subscriber, string key, Action callback)
+		/// <param name="action">Callback.</param>
+		public static void Subscribe (object subscriber, string key, Action action)
 		{
+            var handler = new Handler()
+            {
+                Subscriber = new WeakReference(subscriber),
+                Action = action
+            };
 			var theKey = $"{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ());
+            Default.Subscribe (theKey, handler);
 		}
 
 		/// <summary>
-		/// Subscribe the specified subscriber, key and callback.
+		/// Subscribe the specified subscriber, key and handler.
 		/// </summary>
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
-		/// <param name="callback">Callback.</param>
-		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
-		public static void Subscribe<TSenderOrArgs> (object subscriber, string key, Action<TSenderOrArgs> callback)
+		/// <param name="action">Callback.</param>
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Subscribe<TArgs> (object subscriber, string key, Action<TArgs> action)
 		{
-			var theKey = $"{typeof(TSenderOrArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (arg1, arg2) => callback.Invoke ((TSenderOrArgs)arg1));
+            var handler = new Handler()
+            {
+                Subscriber = new WeakReference(subscriber),
+                Action = action
+            };
+            var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+            Default.Subscribe (theKey, handler);
 		}
 
 		/// <summary>
-		/// Subscribe the specified subscriber, key and callback.
+		/// Subscribe the specified subscriber, key and handler.
 		/// </summary>
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
-		/// <param name="callback">Callback.</param>
+		/// <param name="action">Callback.</param>
 		/// <typeparam name="TSender">The type of the sender.</typeparam>
 		/// <typeparam name="TArgs">The type of the argument.</typeparam>
-		public static void Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> callback)
+		public static void Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> action)
 		{
-			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.subscribe (subscriber, theKey, (sender, args) => callback.Invoke ((TSender)sender, (TArgs)args));
+            var handler = new Handler()
+            {
+                Subscriber = new WeakReference(subscriber),
+                Action = action
+            };
+            var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+            Default.Subscribe (theKey, handler);
 		}
 
 		/// <summary>
@@ -96,10 +115,14 @@ namespace PubSub
 		/// <param name="key">Key.</param>
 		public static void Publish (string key)
 		{
-			PubSubService.Default.publish (d => {
-				var tmp = d.Key.Split('_'); 
-				return tmp[0] == key;
-			}, (action) => action.Invoke (null, null));
+            var hadnlers = Default.GetHandlers(d => {
+                var tmp = d.Key.Split('_');
+                return tmp[0] == key;
+            });
+            foreach (var hadnler in hadnlers)
+            {
+                ((Action)hadnler.Action)();
+            }
 		}
 
 		/// <summary>
@@ -107,18 +130,20 @@ namespace PubSub
 		/// </summary>
 		/// <param name="key">Key.</param>
 		/// <param name="args">Arguments.</param>
-		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
-		public static void Publish<TSenderOrArgs> (string key, TSenderOrArgs args)
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Publish<TArgs> (string key, TArgs args)
 		{
-			var theKey = $"{typeof(TSenderOrArgs)}_{key}";
-			PubSubService.Default.publish (d => {
-				var tmp = d.Key.Split('_'); 
-				if (tmp.Count () >= 2) {
-					var newKey = $"{tmp[0]}_{tmp[1]}";
-					return newKey == theKey;
-				}
-				return false;
-			}, (action) => action.Invoke (args, null));
+			var theKey = $"{typeof(TArgs)}_{key}";
+            var hadnlers = Default.GetHandlers(d => {
+                var tmp = d.Key.Split('_');
+                if (tmp.Count() < 2) return false;
+                var newKey = $"{tmp[0]}_{tmp[1]}";
+                return newKey == theKey;
+            });
+            foreach (var hadnler in hadnlers)
+            {
+                ((Action<TArgs>)hadnler.Action)(args);
+            }
 		}
 
 		/// <summary>
@@ -132,14 +157,16 @@ namespace PubSub
 		public static void Publish<TSender, TArgs> (TSender sender, string key, TArgs args)
 		{
 			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}";
-			PubSubService.Default.publish (d => {
-				var tmp = d.Key.Split('_'); 
-				if (tmp.Count () >= 3) {
-					var newKey = $"{tmp[0]}_{tmp[1]}_{tmp[2]}";
-					return newKey == theKey;
-				}
-				return false;
-			}, (action) => action.Invoke (sender, args));
+            var hadnlers = Default.GetHandlers(d => {
+                var tmp = d.Key.Split('_');
+                if (tmp.Count() < 3) return false;
+                var newKey = $"{tmp[0]}_{tmp[1]}_{tmp[2]}";
+                return newKey == theKey;
+            });
+            foreach (var hadnler in hadnlers)
+            {
+                ((Action<TSender, TArgs>)hadnler.Action)(sender, args);
+            }
 		}
 
 		/// <summary>
@@ -150,7 +177,7 @@ namespace PubSub
 		public static void Unsubscribe (object subscriber, string key)
 		{
 			var theKey = $"{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.unsubscribe (theKey);
+            Default.Unsubscribe (theKey);
 		}
 
 		/// <summary>
@@ -158,11 +185,11 @@ namespace PubSub
 		/// </summary>
 		/// <param name="subscriber">Subscriber.</param>
 		/// <param name="key">Key.</param>
-		/// <typeparam name="TSenderOrArgs">The type of the sender or argument.</typeparam>
-		public static void Unsubscribe<TSenderOrArgs> (object subscriber, string key)
+		/// <typeparam name="TArgs">The type of the argument.</typeparam>
+		public static void Unsubscribe<TArgs> (object subscriber, string key)
 		{
-			var theKey = $"{typeof(TSenderOrArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.unsubscribe (theKey);
+			var theKey = $"{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
+            Default.Unsubscribe (theKey);
 		}
 
 		/// <summary>
@@ -175,7 +202,7 @@ namespace PubSub
 		public static void Unsubscribe<TSender, TArgs> (object subscriber, string key)
 		{
 			var theKey = $"{typeof(TSender)}_{typeof(TArgs)}_{key}_{subscriber.GetType().Name}";
-			PubSubService.Default.unsubscribe (theKey);
+            Default.Unsubscribe (theKey);
 		}
 	}
 }
