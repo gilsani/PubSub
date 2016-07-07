@@ -15,9 +15,9 @@ Events have a string key parameter that is used as way to address events. The Su
 
 ####The API:
 ```cshapr
-* Subscribe (object subscriber, string key, Action callback)
-* Subscribe<TArgs> (object subscriber, string key, Action<TArgs> callback)
-* Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> callback)
+* Subscribe (object subscriber, string key, Action action)
+* Subscribe<TArgs> (object subscriber, string key, Action<TArgs> action)
+* Subscribe<TSender, TArgs> (object subscriber, string key, Action<TSender, TArgs> action)
 * Publish (string key)
 * Publish<TArgs> (string key, TArgs args)
 * Publish<TSender, TArgs> (TSender sender, string key, TArgs args)
